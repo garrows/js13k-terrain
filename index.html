@@ -51,113 +51,70 @@
         };
 
         Terrain.prototype.generate = function(roughness) {
-            var self = this;
+            let divide = (size) => {
+                    var x, y, half = size / 2;
+                    var scale = roughness * size;
+                    if (half < 1) return;
 
-            this.set(0, 0, self.max);
-            this.set(this.max, 0, self.max / 2);
-            this.set(this.max, this.max, 0);
-            this.set(0, this.max, self.max / 2);
-
+                    for (y = half; y < this.max; y += size) {
+                        for (x = half; x < this.max; x += size) {
+                            square(x, y, half, Math.random() * scale * 2 - scale);
+                        }
+                    }
+                    for (y = 0; y <= this.max; y += half) {
+                        for (x = (y + half) % size; x <= this.max; x += size) {
+                            diamond(x, y, half, Math.random() * scale * 2 - scale);
+                        }
+                    }
+                    divide(size / 2);
+                },
+                average = (values) => {
+                    var valid = values.filter(function(val) {
+                        return val !== -1;
+                    });
+                    var total = valid.reduce(function(sum, val) {
+                        return sum + val;
+                    }, 0);
+                    return total / valid.length;
+                },
+                square = (x, y, size, offset) => {
+                    var ave = average([
+                        this.get(x - size, y - size), // upper left
+                        this.get(x + size, y - size), // upper right
+                        this.get(x + size, y + size), // lower right
+                        this.get(x - size, y + size) // lower left
+                    ]);
+                    this.set(x, y, ave + offset);
+                },
+                diamond = (x, y, size, offset) => {
+                    var ave = average([
+                        this.get(x, y - size), // top
+                        this.get(x + size, y), // right
+                        this.get(x, y + size), // bottom
+                        this.get(x - size, y) // left
+                    ]);
+                    this.set(x, y, ave + offset);
+                };
             divide(this.max);
-
-            function divide(size) {
-                var x, y, half = size / 2;
-                var scale = roughness * size;
-                if (half < 1) return;
-
-                for (y = half; y < self.max; y += size) {
-                    for (x = half; x < self.max; x += size) {
-                        square(x, y, half, Math.random() * scale * 2 - scale);
-                    }
-                }
-                for (y = 0; y <= self.max; y += half) {
-                    for (x = (y + half) % size; x <= self.max; x += size) {
-                        diamond(x, y, half, Math.random() * scale * 2 - scale);
-                    }
-                }
-                divide(size / 2);
-            }
-
-            function average(values) {
-                var valid = values.filter(function(val) {
-                    return val !== -1;
-                });
-                var total = valid.reduce(function(sum, val) {
-                    return sum + val;
-                }, 0);
-                return total / valid.length;
-            }
-
-            function square(x, y, size, offset) {
-                var ave = average([
-                    self.get(x - size, y - size), // upper left
-                    self.get(x + size, y - size), // upper right
-                    self.get(x + size, y + size), // lower right
-                    self.get(x - size, y + size) // lower left
-                ]);
-                self.set(x, y, ave + offset);
-            }
-
-            function diamond(x, y, size, offset) {
-                var ave = average([
-                    self.get(x, y - size), // top
-                    self.get(x + size, y), // right
-                    self.get(x, y + size), // bottom
-                    self.get(x - size, y) // left
-                ]);
-                self.set(x, y, ave + offset);
-            }
         };
 
         Terrain.prototype.draw = function(ctx, width, height) {
-            var self = this;
-            var waterVal = this.size * 0.3;
 
-            for (var y = 0; y < this.size; y++) {
-                for (var x = 0; x < this.size; x++) {
-                    var val = this.get(x, y);
-                    var top = project(x, y, val);
-                    var bottom = project(x + 1, y, 0);
-                    var water = project(x, y, waterVal);
-                    var style = brightness(x, y, this.get(x + 1, y) - val);
-
-                    rect(top, bottom, style);
-                    rect(water, bottom, 'rgba(50, 150, 200, 0.15)');
-                }
-            }
-
-            function rect(a, b, style) {
-                if (b.y < a.y) return;
-                ctx.fillStyle = style;
-                ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-            }
-
-            function brightness(x, y, slope) {
-                if (y === self.max || x === self.max) return '#000';
+            let brightness = (x, y, slope) => {
+                if (y === this.max || x === this.max) return '#000';
                 var b = ~~(slope * 50) + 128;
                 return ['rgba(', b, ',', b, ',', b, ',1)'].join('');
             }
 
-            function iso(x, y) {
-                return {
-                    x: 0.5 * (self.size + x - y),
-                    y: 0.5 * (x + y)
-                };
+            for (var y = 0; y < this.size; y++) {
+                for (var x = 0; x < this.size; x++) {
+                    var val = this.get(x, y);
+                    ctx.fillStyle = brightness(x, y, this.get(x + 1, y) - val);
+                    ctx.fillRect(x, y, 1, 1);
+                }
             }
 
-            function project(flatX, flatY, flatZ) {
-                var point = iso(flatX, flatY);
-                var x0 = width * 0.5;
-                var y0 = height * 0.2;
-                var z = self.size * 0.5 - flatZ + point.y * 0.75;
-                var x = (point.x - self.size * 0.5) * 6;
-                var y = (self.size - point.y) * 0.005 + 1;
 
-                return {
-                    x: x0 + x / y,
-                    y: y0 + z / y
-                };
-            }
         };
 
 
@@ -171,61 +128,73 @@
             fontSize: 16,
             x: 100,
             y: 100,
+            z: 1,
             fps: 0,
+            terrainDetail: 8,
+            terrainRoughness: 0.5,
         };
 
 
 
-        window.onload = function() {
-            var canvas = document.querySelector('canvas'),
-                ctx = canvas.getContext('2d'),
-                terrainCanvas = document.createElement('canvas'),
-                terrainCtx = terrainCanvas.getContext('2d');
+
+        if (window.DEBUG) {
+            var gui = new dat.GUI();
+            gui.remember(data);
+            gui.add(data, 'message');
+            gui.add(data, 'terrainDetail', 1, 11);
+            gui.add(data, 'terrainRoughness', 0, 1);
+            gui.add(data, 'fontSize', 0, 100);
+            gui.add(data, 'x', 0, 1000);
+            gui.add(data, 'y', 400, 600).listen();
+            gui.add(data, 'z', 0, 1);
+            gui.add(data, 'fps').listen();
+            gui.addColor(data, 'background');
+            gui.addColor(data, 'foreground');
+        }
 
 
-            terrainCanvas.width = canvas.width = window.innerWidth;
-            terrainCanvas.height = canvas.height = window.innerHeight;
+        var canvas = document.querySelector('canvas'),
+            ctx = canvas.getContext('2d'),
+            terrainCanvas = document.createElement('canvas'),
+            terrainCtx = terrainCanvas.getContext('2d'),
+            terrain = new Terrain(parseInt(data.terrainDetail));
 
-            var terrain = new Terrain(9);
-            terrain.generate(0.2);
-            terrain.draw(terrainCtx, terrainCanvas.width, terrainCanvas.height);
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        terrainCanvas.width = terrainCanvas.height = terrain.size - 1;
 
-
-            if (window.DEBUG) {
-                var gui = new dat.GUI();
-                gui.remember(data);
-                gui.add(data, 'message');
-                gui.add(data, 'fontSize', 0, 100);
-                gui.add(data, 'x', 0, canvas.width);
-                gui.add(data, 'y', 0, canvas.height).listen();
-                gui.add(data, 'fps').listen();
-                gui.addColor(data, 'background');
-                gui.addColor(data, 'foreground');
-            }
-
-            var lastTimestamp = 0;
-            var draw = (timestamp) => {
-                var dt = timestamp - lastTimestamp;
-                lastTimestamp = timestamp;
-
-                data.fps = 1000 / dt;
-                data.y = (canvas.height / 2) + 50 * -Math.abs(Math.sin(timestamp / 300));
-
-                ctx.fillStyle = data.background;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                ctx.drawImage(terrainCanvas, 0, 0, terrainCanvas.width, terrainCanvas.height, 0, 0, canvas.width, canvas.height);
-
-                ctx.fillStyle = data.foreground;
-                ctx.font = data.fontSize + 'px sans-serif';
-                ctx.fillText(data.message, data.x, data.y);
+        console.log('terrain.size', terrain.size - 1);
+        console.time('terrain.generate');
+        terrain.generate(data.terrainRoughness);
+        console.timeEnd('terrain.generate');
+        console.time('terrain.draw');
+        terrain.draw(terrainCtx, terrainCanvas.width, terrainCanvas.height);
+        console.timeEnd('terrain.draw');
 
 
-                requestAnimationFrame(draw);
-            }
 
-            draw();
-        };
+        var lastTimestamp = 0;
+        var draw = (timestamp) => {
+            var dt = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            data.fps = 1000 / dt;
+            data.y = (canvas.height / 2) + 50 * -Math.abs(Math.sin(timestamp / 300));
+
+            ctx.fillStyle = data.background;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.drawImage(terrainCanvas, 0, 0, terrainCanvas.width * data.z, terrainCanvas.height * data.z, 0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = data.foreground;
+            ctx.font = data.fontSize + 'px sans-serif';
+            ctx.fillText(data.message, data.x, data.y);
+
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
     </script>
 </body>
 
