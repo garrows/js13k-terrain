@@ -178,14 +178,17 @@
 
         window.onload = function() {
             var canvas = document.querySelector('canvas'),
-                ctx = canvas.getContext('2d');
+                ctx = canvas.getContext('2d'),
+                terrainCanvas = document.createElement('canvas'),
+                terrainCtx = terrainCanvas.getContext('2d');
 
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+
+            terrainCanvas.width = canvas.width = window.innerWidth;
+            terrainCanvas.height = canvas.height = window.innerHeight;
 
             var terrain = new Terrain(9);
             terrain.generate(0.2);
-
+            terrain.draw(terrainCtx, terrainCanvas.width, terrainCanvas.height);
 
 
             if (window.DEBUG) {
@@ -210,7 +213,9 @@
 
                 ctx.fillStyle = data.background;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                terrain.draw(ctx, canvas.width, canvas.height);
+
+                ctx.drawImage(terrainCanvas, 0, 0, terrainCanvas.width, terrainCanvas.height, 0, 0, canvas.width, canvas.height);
+
                 ctx.fillStyle = data.foreground;
                 ctx.font = data.fontSize + 'px sans-serif';
                 ctx.fillText(data.message, data.x, data.y);
