@@ -33,7 +33,24 @@
     <!-- dev only -->
 
     <script>
-        //Terrain stolen from http://www.playfuljs.com/realistic-terrain-in-130-lines/
+        var data = {
+                x: 0,
+                y: 0,
+                zoom: 1,
+                fps: 0,
+                terrainDetail: 9,
+                terrainRoughness: 0.5,
+                waterColor: '#0000aa',
+                waterHeight: -50,
+            },
+            canvas = document.querySelector('canvas'),
+            ctx = canvas.getContext('2d'),
+            terrainCanvas = document.createElement('canvas'),
+            terrainCtx = terrainCanvas.getContext('2d'),
+            gui = new dat.GUI();
+
+
+        //Terrain generation modified from http://www.playfuljs.com/realistic-terrain-in-130-lines/
         function Terrain(indetail) {
             this.detail = indetail;
             this.size = Math.pow(2, this.detail) + 1;
@@ -109,7 +126,11 @@
             for (var y = 0; y < this.size; y++) {
                 for (var x = 0; x < this.size; x++) {
                     var val = this.get(x, y);
-                    ctx.fillStyle = brightness(x, y, this.get(x + 1, y) - val);
+                    if (val > data.waterHeight) {
+                        ctx.fillStyle = brightness(x, y, this.get(x + 1, y) - val);
+                    } else {
+                        ctx.fillStyle = data.waterColor;
+                    }
                     ctx.fillRect(x, y, 1, 1);
                 }
             }
@@ -117,61 +138,36 @@
 
         };
 
+        var drawWorld = () => {
+            var terrain = new Terrain(parseInt(data.terrainDetail));
 
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            terrainCanvas.width = terrainCanvas.height = terrain.size - 1;
 
-
-
-        var data = {
-            message: 'Hello',
-            background: '#000000',
-            foreground: '#FFFFFF',
-            fontSize: 16,
-            x: 100,
-            y: 100,
-            z: 1,
-            fps: 0,
-            terrainDetail: 8,
-            terrainRoughness: 0.5,
-        };
-
-
-
-
-        if (window.DEBUG) {
-            var gui = new dat.GUI();
-            gui.remember(data);
-            gui.add(data, 'message');
-            gui.add(data, 'terrainDetail', 1, 11);
-            gui.add(data, 'terrainRoughness', 0, 1);
-            gui.add(data, 'fontSize', 0, 100);
-            gui.add(data, 'x', 0, 1000);
-            gui.add(data, 'y', 400, 600).listen();
-            gui.add(data, 'z', 0, 1);
-            gui.add(data, 'fps').listen();
-            gui.addColor(data, 'background');
-            gui.addColor(data, 'foreground');
+            console.log('terrain.size', terrain.size - 1);
+            console.time('terrain.generate');
+            terrain.generate(data.terrainRoughness);
+            console.timeEnd('terrain.generate');
+            console.time('terrain.draw');
+            terrain.draw(terrainCtx, terrainCanvas.width, terrainCanvas.height);
+            console.timeEnd('terrain.draw');
         }
 
+        gui.remember(data);
+        var v = gui.add(data, 'terrainDetail', 1, 11);
+        gui.add(data, 'terrainRoughness', 0, 1).onFinishChange(drawWorld);
+        gui.add(data, 'x', 0, canvas.width);
+        gui.add(data, 'y', 0, canvas.height);
+        gui.add(data, 'zoom', 0, 1);
+        gui.add(data, 'waterHeight', -128, 128).onFinishChange(drawWorld);
+        gui.addColor(data, 'waterColor').onFinishChange(drawWorld);
+        gui.add(data, 'fps').listen();
+        v.onFinishChange(function() {
+          drawWorld();
+        });
 
-        var canvas = document.querySelector('canvas'),
-            ctx = canvas.getContext('2d'),
-            terrainCanvas = document.createElement('canvas'),
-            terrainCtx = terrainCanvas.getContext('2d'),
-            terrain = new Terrain(parseInt(data.terrainDetail));
-
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        terrainCanvas.width = terrainCanvas.height = terrain.size - 1;
-
-        console.log('terrain.size', terrain.size - 1);
-        console.time('terrain.generate');
-        terrain.generate(data.terrainRoughness);
-        console.timeEnd('terrain.generate');
-        console.time('terrain.draw');
-        terrain.draw(terrainCtx, terrainCanvas.width, terrainCanvas.height);
-        console.timeEnd('terrain.draw');
-
-
+        drawWorld();
 
         var lastTimestamp = 0;
         var draw = (timestamp) => {
@@ -179,17 +175,11 @@
             lastTimestamp = timestamp;
 
             data.fps = 1000 / dt;
-            data.y = (canvas.height / 2) + 50 * -Math.abs(Math.sin(timestamp / 300));
 
             ctx.fillStyle = data.background;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.drawImage(terrainCanvas, 0, 0, terrainCanvas.width * data.z, terrainCanvas.height * data.z, 0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = data.foreground;
-            ctx.font = data.fontSize + 'px sans-serif';
-            ctx.fillText(data.message, data.x, data.y);
-
+            ctx.drawImage(terrainCanvas, data.x, data.y, terrainCanvas.width * data.zoom, terrainCanvas.height * data.zoom, 0, 0, canvas.width, canvas.height);
 
             requestAnimationFrame(draw);
         }
